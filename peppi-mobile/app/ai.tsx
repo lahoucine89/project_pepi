@@ -22,8 +22,8 @@ type ChatMessage = {
   createdAt: number;
 };
 
-// backend endpoint (localtunnel)
-const API_URL = "https://peppi-ai-server.onrender.com/api/ai-chat";
+// ✅ Cloudflare tunnel endpoint (PUT YOUR LATEST LINK HERE)
+const API_URL = "https://mesh-lovers-emerging-exposure.trycloudflare.com/api/ai-chat";
 
 export default function AIChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -51,28 +51,40 @@ export default function AIChatScreen() {
     });
   }
 
-  function addMessage(role: ChatRole, content: string) {
-    const msg: ChatMessage = {
-      id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      role,
-      content,
-      createdAt: Date.now(),
-    };
-    setMessages((prev) => [...prev, msg]);
-    return msg;
+  function clearChat() {
+    setMessages([
+      {
+        id: "m-welcome",
+        role: "assistant",
+        content:
+          "Hi! I’m your study helper. Ask me anything about courses, schedules, or planning your credits.",
+        createdAt: Date.now(),
+      },
+    ]);
   }
 
   async function send() {
     const text = input.trim();
     if (!text || isSending) return;
 
+    setIsSending(true);
     setInput("");
-    addMessage("user", text);
 
-    const typingId = `assistant-typing-${Date.now()}`;
+    const now = Date.now();
 
+    const userMsg: ChatMessage = {
+      id: `user-${now}-${Math.random().toString(16).slice(2)}`,
+      role: "user",
+      content: text,
+      createdAt: now,
+    };
+
+    const typingId = `assistant-typing-${now}`;
+
+    // Show user message + typing bubble immediately
     setMessages((prev) => [
       ...prev,
+      userMsg,
       {
         id: typingId,
         role: "assistant",
@@ -81,19 +93,11 @@ export default function AIChatScreen() {
       },
     ]);
 
-    setIsSending(true);
     scrollToEnd();
 
     try {
-      const lastMessages = [
-        ...messages,
-        {
-          id: "tmp",
-          role: "user" as const,
-          content: text,
-          createdAt: Date.now(),
-        },
-      ]
+      // Build last messages (keep context small)
+      const lastMessages = [...messages, userMsg]
         .slice(-12)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -102,29 +106,20 @@ export default function AIChatScreen() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-
-          // ✅ IMPORTANT: correct LocalTunnel bypass header (capitalization matters sometimes)
-          "Bypass-Tunnel-Reminder": "true",
-
-          // ✅ Sometimes helps bypass the interstitial
-          "User-Agent": "localtunnel",
         },
         body: JSON.stringify({ messages: lastMessages }),
       });
 
-      const raw = await res.text(); // read as text first (important)
+      const raw = await res.text();
 
       if (!res.ok) {
         throw new Error(`Server error (${res.status}): ${raw.slice(0, 200)}`);
       }
 
-      // If LocalTunnel is still returning HTML, catch it clearly
-      if (
-        raw.trim().startsWith("<!DOCTYPE") ||
-        raw.trim().startsWith("<html")
-      ) {
+      // If the server/tunnel returns HTML (not JSON), show clear error
+      if (raw.trim().startsWith("<!DOCTYPE") || raw.trim().startsWith("<html")) {
         throw new Error(
-          "Tunnel returned an HTML consent/reminder page. Open the tunnel URL in your phone browser and accept it, then try again.",
+          "Server returned HTML instead of JSON. Make sure cloudflared tunnel is running and API_URL is correct."
         );
       }
 
@@ -139,7 +134,7 @@ export default function AIChatScreen() {
         (data?.reply ?? "").trim() || "Sorry, I didn’t get that. Try again.";
 
       setMessages((prev) =>
-        prev.map((m) => (m.id === typingId ? { ...m, content: reply } : m)),
+        prev.map((m) => (m.id === typingId ? { ...m, content: reply } : m))
       );
     } catch (err: any) {
       const msg =
@@ -148,31 +143,12 @@ export default function AIChatScreen() {
           : "I couldn’t reach the server. Please check your internet or try again.";
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === typingId
-            ? {
-                ...m,
-                content: msg,
-              }
-            : m,
-        ),
+        prev.map((m) => (m.id === typingId ? { ...m, content: msg } : m))
       );
     } finally {
       setIsSending(false);
       scrollToEnd();
     }
-  }
-
-  function clearChat() {
-    setMessages([
-      {
-        id: "m-welcome",
-        role: "assistant",
-        content:
-          "Hi! I’m your study helper. Ask me anything about courses, schedules, or planning your credits.",
-        createdAt: Date.now(),
-      },
-    ]);
   }
 
   return (
@@ -222,8 +198,7 @@ export default function AIChatScreen() {
             disabled={isSending || input.trim().length === 0}
             style={({ pressed }) => [
               styles.sendBtn,
-              (isSending || input.trim().length === 0) &&
-                styles.sendBtnDisabled,
+              (isSending || input.trim().length === 0) && styles.sendBtnDisabled,
               pressed && !isSending && styles.sendBtnPressed,
             ]}
           >
@@ -243,12 +218,8 @@ function ChatBubble({ role, text }: { role: ChatRole; text: string }) {
   const isUser = role === "user";
   return (
     <View style={[styles.bubbleRow, isUser ? styles.rowRight : styles.rowLeft]}>
-      <View
-        style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}
-      >
-        <Text
-          style={[styles.bubbleText, isUser ? styles.userText : styles.aiText]}
-        >
+      <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
+        <Text style={[styles.bubbleText, isUser ? styles.userText : styles.aiText]}>
           {text}
         </Text>
       </View>
