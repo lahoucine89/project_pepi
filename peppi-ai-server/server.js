@@ -13,10 +13,13 @@ app.get("/", (req, res) => {
 app.post("/api/ai-chat", async (req, res) => {
   try {
     if (!OPENAI_API_KEY) {
+      console.error("Missing OPENAI_API_KEY in environment variables.");
       return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
     }
 
     const { messages } = req.body;
+
+    console.log("Request received. Messages count:", messages?.length);
 
     if (!Array.isArray(messages)) {
       return res.status(400).send("messages must be an array");
@@ -36,7 +39,8 @@ app.post("/api/ai-chat", async (req, res) => {
             content: [
               {
                 type: "text",
-                text: "You are a helpful university study assistant inside a student app. Be concise and practical.",
+                text:
+                  "You are a helpful university study assistant inside a student app. Be concise and practical.",
               },
             ],
           },
@@ -50,6 +54,8 @@ app.post("/api/ai-chat", async (req, res) => {
 
     if (!r.ok) {
       const txt = await r.text();
+      console.error("OpenAI error status:", r.status);
+      console.error("OpenAI error body:", txt);
       return res.status(500).send(txt);
     }
 
