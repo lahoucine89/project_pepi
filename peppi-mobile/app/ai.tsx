@@ -22,8 +22,8 @@ type ChatMessage = {
   createdAt: number;
 };
 
-// ✅ Cloudflare tunnel endpoint (PUT YOUR LATEST LINK HERE)
-const API_URL = "https://mesh-lovers-emerging-exposure.trycloudflare.com/api/ai-chat";
+const API_URL =
+  "https://everyday-midwest-ancient-narrative.trycloudflare.com/api/ai-chat";
 
 export default function AIChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
